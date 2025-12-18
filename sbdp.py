@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     logger.error("Apply Header and create Event ")
     final_df = Transformations.apply_header(spark=spark, df=data_df)
-    final_df.write.parquet("data.parquet")
+    # final_df.write.parquet("data.parquet")
 
     # TODO
     kafka_kv_df = final_df.select(col("payload.contractIdentifier.newValue").alias("key"),
