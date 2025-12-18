@@ -1,13 +1,14 @@
 from pyspark.sql import functions as F, DataFrame
 from pyspark.sql.connect.session import SparkSession
+from pyspark.sql.functions import collect_list, struct
 
 
 def get_insert_operation(column, alias):
     return F.struct(
         F.lit("INSERT").alias("operation"),
         column.alias('newValue'),
-        F.lit(None).alias('oldValue').alias(alias)
-    )
+        F.lit(None).alias('oldValue')
+    ).alias(alias)
 
 
 def get_contract(df: DataFrame):
@@ -29,7 +30,7 @@ def get_contract(df: DataFrame):
         F.col("account_id"),
         get_insert_operation(F.col("account_id"), "contractIdentifier"),
         get_insert_operation(F.col("source_sys"), "sourceSystemIdentifier"),
-        get_insert_operation(F.col("account_start_date"), "contactStartIdentifier"),
+        get_insert_operation(F.col("account_start_date"), "contactStartDateTime"),
         get_insert_operation(contract_title_nl, "contractTitle"),
         get_insert_operation(tax_identifier, "taxIdentifier"),
         get_insert_operation(F.col("branch_code"), "contractBranchCode"),
@@ -44,10 +45,11 @@ def get_relations(df: DataFrame):
     df_with_struct = df.select(
         "account_id",
         "party_id",
-        get_insert_operation(F.col("party"), "partyIdentifier"),
+        get_insert_operation(F.col("party_id"), "partyIdentifier"),
         get_insert_operation(F.col("relation_type"), "partyRelationshipType"),
-        get_insert_operation(F.col("relation_start_date"), "partyRelationStartDateIdentifier"),
+        get_insert_operation(F.col("relation_start_date"), "partyRelationStartDateTime"),
     )
+    return df_with_struct
 
 
 def get_address(df: DataFrame):
@@ -62,7 +64,7 @@ def get_address(df: DataFrame):
         F.col("address_start_date").alias("addressStartDate"),
     )
     df_with_struct = df.select("party_id", get_insert_operation(address, "partyAddress"))
-    print("START:: get Address")
+    print("END:: get Address")
     df_with_struct.printSchema()
     return df_with_struct
 
@@ -76,8 +78,8 @@ def join_party_address(party_df: DataFrame, address_df: DataFrame):
                 "partyRelationshipType",
                 "partyRelationStartDateTime",
                 "partyAddress",
-            ).alias("partyRelations")
-        )
+            ).alias("partyDetails")
+        ).alias("partyRelations")
     ))
     print("Party_adderss_df")
     party_address_df.printSchema()

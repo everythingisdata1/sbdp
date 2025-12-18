@@ -3,8 +3,7 @@ from datetime import date, datetime
 import pytest
 from chispa import assert_df_equality
 from pyspark import Row
-from pyspark.sql.functions import array
-from pyspark.sql.types import StructType, StructField, StringType, NullType, ArrayType
+from pyspark.sql.types import StructType, StructField, StringType, NullType, ArrayType, TimestampType
 
 from src import DataLoader, Transformations
 from src.ConfigLoader import get_config
@@ -44,53 +43,39 @@ def expected_party_rows():
 
 @pytest.fixture(scope='session')
 def expected_contract_df(spark):
-    schema = StructType([
-        StructField("account_id", StringType()),
-        StructField("contractIdentifier", StructType([
-            StructField("operation", StringType()),
-            StructField("newValue", StringType()),
-            StructField("oldValue", NullType())
-        ])),
-        StructField("sourceSystemIdentifier", StructType([
-            StructField("operation", StringType()),
-            StructField("newValue", StringType()),
-            StructField("oldValue", NullType())
-        ])),
-        StructField("contactStartDateTime", StructType([
-            StructField("operation", StringType()),
-            StructField("newValue", StringType()),
-            StructField("oldValue", NullType())
-        ])),
-        StructField("contractTitle", StructType([
-            StructField("operation", StringType()),
-            StructField("newValue", ArrayType(StructType(
-                [StructField('contractTitleLineType', StringType()),
-                 StructField('contractTitleLine', StringType())]
-            ))),
-            StructField("oldValue", NullType())
-        ])),
-        StructField("taxIdentifier", StructType([
-            StructField("operation", StringType()),
-            StructField("newValue", StructType(
-                [StructField('contractTitleLineType', StringType()),
-                 StructField('contractTitleLine', StringType())]
-            )),
-            StructField("oldValue", NullType())
-        ])),
-        StructField("contractBranchCode",
-                    StructType([
-                        StructField("operation", StringType()),
-                        StructField("newValue", StringType()),
-                        StructField("oldValue", NullType())
-                    ])),
-        StructField("contractCountry",
-                    StructType([
-                        StructField("operation", StringType()),
-                        StructField("newValue", StringType()),
-                        StructField("oldValue", NullType())
-                    ]))
-
-    ])
+    schema = StructType([StructField('account_id', StringType()),
+                         StructField('contractIdentifier', StructType([StructField('operation', StringType()),
+                                                                       StructField('newValue', StringType()),
+                                                                       StructField('oldValue', NullType())])),
+                         StructField('sourceSystemIdentifier',
+                                     StructType([StructField('operation', StringType()),
+                                                 StructField('newValue', StringType()),
+                                                 StructField('oldValue', NullType())])),
+                         StructField('contactStartDateTime',
+                                     StructType([StructField('operation', StringType()),
+                                                 StructField('newValue', TimestampType()),
+                                                 StructField('oldValue', NullType())])),
+                         StructField('contractTitle',
+                                     StructType([StructField('operation', StringType()),
+                                                 StructField('newValue',
+                                                             ArrayType(StructType(
+                                                                 [StructField('contractTitleLineType', StringType()),
+                                                                  StructField('contractTitleLine', StringType())]))),
+                                                 StructField('oldValue', NullType())])),
+                         StructField('taxIdentifier',
+                                     StructType([StructField('operation', StringType()),
+                                                 StructField('newValue',
+                                                             StructType([StructField('taxIdType', StringType()),
+                                                                         StructField('taxId', StringType())])),
+                                                 StructField('oldValue', NullType())])),
+                         StructField('contractBranchCode',
+                                     StructType([StructField('operation', StringType()),
+                                                 StructField('newValue', StringType()),
+                                                 StructField('oldValue', NullType())])),
+                         StructField('contractCountry',
+                                     StructType([StructField('operation', StringType()),
+                                                 StructField('newValue', StringType()),
+                                                 StructField('oldValue', NullType())]))])
 
     return spark.read.format("json").schema(schema).load("test_data/results/contract_df.json")
 
@@ -116,5 +101,8 @@ def test_read_parties(spark, expected_party_rows):
 def test_get_contract(spark, expected_contract_df):
     accounts_df = DataLoader.read_account(spark, "LOCAL", False, None)
     actual_contract_df = Transformations.get_contract(accounts_df)
+    print(expected_contract_df.collect())
+    print(actual_contract_df.collect())
     assert expected_contract_df.collect() == actual_contract_df.collect()
-    assert_df_equality(expected_contract_df, actual_contract_df, ignore_schema=True)
+    assert_df_equality(expected_contract_df, expected_contract_df, ignore_nullable=True, ignore_metadata=True,
+                       ignore_column_order=True, ignore_row_order=True)

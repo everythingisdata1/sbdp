@@ -49,4 +49,4 @@ def read_parties(spark, env, enable_hive, hive_db):
 
 def read_address(spark, env, enable_hive, hive_db):
     return _read_data(spark=spark, env=env, enable_hive=enable_hive, hive_db=hive_db, hive_table='party_address',
-                      paths="test_data/address/", filter_key='address.filter', schema=get_address_schema())
+                      paths="test_data/party_address/", filter_key='address.filter', schema=get_address_schema())

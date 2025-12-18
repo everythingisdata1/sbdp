@@ -1,22 +1,24 @@
 import os
-import sys
 import uuid
 
+PYTHON_EXE = r"D:\codes\py-spark\spark-bulk-data-processing\.venv\Scripts\python.exe"
+
+os.environ["PYSPARK_PYTHON"] = PYTHON_EXE
 from pyspark.sql.functions import col, to_json, struct
 
 from src import ConfigLoader, DataLoader, Transformations
 from src.config import Utils
-from src.lib import Log4J
+from src.logger import Log4J
 
 # Ensure log directory exists
 os.makedirs("logs", exist_ok=True)
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print("Usage: SBDP- {dev, qa ,prod} {load_date}- Arg is missing")
-        sys.exit(-1)
-    job_run_env = sys.argv[1].upper()
-    load_date = sys.argv[2]
+    # if len(sys.argv) < 3:
+    #     print("Usage: SBDP- {dev, qa ,prod} {load_date}- Arg is missing")
+    #     sys.exit(-1)
+    job_run_env = "LOCAL"  # sys.argv[1].upper()
+    # load_date = sys.argv[2]
     job_run_id = "SBDP-" + str(uuid.uuid4())
 
     print(f"[INITIALISED] SBDP Spark JOB for env {job_run_env} and job id {job_run_id}")
@@ -31,12 +33,12 @@ if __name__ == '__main__':
     logger.info("[START] :: Spark Bulk Data Processing started")
 
     logger.error("Reading SBDP parties Csv to DF")
-    parties_df = DataLoader.read_party(spark=spark, env=job_run_env, enable_hive=enable_hive, hive_db=hive_db)
+    parties_df = DataLoader.read_parties(spark=spark, env=job_run_env, enable_hive=enable_hive, hive_db=hive_db)
     relations_df = Transformations.get_relations(df=parties_df)
 
     logger.error("Reading SBDP Address Csv to DF")
     address_df = DataLoader.read_address(spark=spark, env=job_run_env, enable_hive=enable_hive, hive_db=hive_db)
-    relation_address_df = Transformations.get_relations(df=address_df)
+    relation_address_df = Transformations.get_address(df=address_df)
 
     logger.error("Joining Party Relation and Address DF")
     party_address_Df = Transformations.join_party_address(party_df=relations_df, address_df=relation_address_df)
@@ -50,17 +52,19 @@ if __name__ == '__main__':
 
     logger.error("Apply Header and create Event ")
     final_df = Transformations.apply_header(spark=spark, df=data_df)
+    final_df.write.parquet("data.parquet")
 
     # TODO
-    kafka_kv_df = final_df.select(col('payload.contactIdentifier.newValue').alias("key"),
-                                  to_json(struct('*')).alias("value"))
+    kafka_kv_df = final_df.select(col("payload.contractIdentifier.newValue").alias("key"),
+                                  to_json(struct("*")).alias("value"))
 
-    kafka_key = config['kafka.key']
-    kafka_secret = config['kafka.api_secret']
-
-    (final_df.write.format("kakfa")
-     .option()
-     .save()
-     )
+    input("TT")
+    # kafka_key = config['kafka.key']
+    # kafka_secret = config['kafka.api_secret']
+    #
+    # (final_df.write.format("kakfa")
+    #  .option()
+    #  .save()
+    #  )
 
     logger.info("Finished Data sending data to Kafka")
